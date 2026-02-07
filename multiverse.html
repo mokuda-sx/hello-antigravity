@@ -1,0 +1,1809 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Self-Evolving Interface (Standalone)</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0a0a0a;
+            color: #e0e0e0;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* --- Control Panel --- */
+        #control-panel {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(180deg, #1a1a2e, #16213e);
+            border-bottom: 2px solid #0f3460;
+            padding: 15px 20px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        #control-panel .home-link {
+            color: #0ff;
+            text-decoration: none;
+            font-size: 14px;
+            padding: 8px 16px;
+            border: 1px solid #0ff;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        #control-panel .home-link:hover {
+            background: rgba(0, 255, 255, 0.1);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+        }
+
+        #control-panel input[type="password"] {
+            flex: 1;
+            min-width: 200px;
+            max-width: 400px;
+            padding: 10px 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #0f0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+
+        #control-panel input[type="password"]:focus {
+            outline: none;
+            border-color: #0f0;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
+        }
+
+        #control-panel button {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #start-btn {
+            background: linear-gradient(135deg, #00b894, #00cec9);
+            color: #000;
+        }
+
+        #start-btn:hover {
+            box-shadow: 0 0 20px rgba(0, 206, 201, 0.5);
+            transform: translateY(-2px);
+        }
+
+        #start-btn:disabled {
+            background: #333;
+            color: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        #stop-btn {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: #fff;
+            display: none;
+        }
+
+        #stop-btn:hover {
+            box-shadow: 0 0 20px rgba(231, 76, 60, 0.5);
+            transform: translateY(-2px);
+        }
+
+        #status-indicator {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        #status-indicator.stopped {
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
+            border: 1px solid #e74c3c;
+        }
+
+        #status-indicator.running {
+            background: rgba(0, 206, 201, 0.2);
+            color: #00cec9;
+            border: 1px solid #00cec9;
+            animation: pulse-status 2s infinite;
+        }
+
+        @keyframes pulse-status {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        #main-content {
+            margin-top: 70px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 70px);
+        }
+
+        #brain-view {
+            height: 450px;
+            background: radial-gradient(circle at center, #050505 0%, #000 100%);
+            border-bottom: 2px solid #222;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.05);
+        }
+
+        #multiverse {
+            display: flex;
+            flex: 1;
+            width: 100%;
+        }
+
+        .universe {
+            flex: 1;
+            position: relative;
+            border-right: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            background: #111;
+        }
+
+        .universe-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 20px;
+            overflow-y: hidden;
+            position: relative;
+            height: 400px;
+        }
+
+        .results-container {
+            margin-top: 15px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 50px;
+            overflow-y: auto;
+        }
+
+        .numpad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-gap: 5px;
+            justify-content: center;
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            border: 1px solid #333;
+            width: 150px;
+            align-self: center;
+        }
+
+        .numpad-grid div {
+            aspect-ratio: 1/1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .thought-log {
+            height: 120px;
+            background: rgba(0, 0, 0, 0.5);
+            border-top: 1px solid #333;
+            font-size: 10px;
+            padding: 5px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column-reverse;
+        }
+
+        .thought-entry {
+            margin-bottom: 3px;
+            opacity: 0.8;
+            animation: slideIn 0.2s ease-out;
+        }
+
+        .recommendation-panel {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px dashed #3b82f6;
+            margin: 5px 15px;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #93c5fd;
+            display: none;
+            animation: fadeIn 0.5s ease-in;
+            font-family: 'Inter', sans-serif;
+            line-height: 1.4;
+        }
+
+        .recommendation-panel.active {
+            display: block;
+        }
+
+        .info-badge {
+            font-size: 9px;
+            background: #1e3a8a;
+            color: #60a5fa;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-right: 5px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .universe-header {
+            padding: 8px;
+            font-size: 12px;
+            font-weight: bold;
+            background: rgba(255, 255, 255, 0.05);
+            text-align: center;
+        }
+
+        .debug-overlay {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 10px;
+            border: 1px solid #0f0;
+            font-size: 11px;
+            z-index: 100;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .kg-legend {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 8px;
+            border: 1px solid #333;
+            font-size: 10px;
+            color: #aaa;
+            pointer-events: none;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .legend-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .assignment-card {
+            background: rgba(255, 255, 0, 0.1);
+            border: 1px solid #550;
+            padding: 4px 8px;
+            font-size: 11px;
+            color: #fbbf24;
+            display: inline-block;
+            margin-left: 15px;
+            border-radius: 4px;
+            font-family: 'Orbitron', sans-serif;
+            animation: pulse-slow 2s infinite;
+        }
+
+        @keyframes pulse-slow {
+            0% { opacity: 0.8; }
+            50% { opacity: 1; border-color: #f59e0b; }
+            100% { opacity: 0.8; }
+        }
+
+        /* Waiting state overlay */
+        #waiting-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 500;
+        }
+
+        #waiting-overlay .message {
+            text-align: center;
+            color: #888;
+        }
+
+        #waiting-overlay .message h2 {
+            color: #0ff;
+            margin-bottom: 10px;
+        }
+
+        #waiting-overlay.hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Control Panel -->
+    <div id="control-panel">
+        <a href="index.html" class="home-link">← トップページ</a>
+        <input type="password" id="api-key-input" placeholder="Gemini API Key を入力..." />
+        <button id="start-btn">▶ Start</button>
+        <button id="stop-btn">■ Stop</button>
+        <span id="status-indicator" class="stopped">Stopped</span>
+    </div>
+
+    <div id="main-content">
+        <!-- Waiting Overlay -->
+        <div id="waiting-overlay">
+            <div class="message">
+                <h2>🧠 Self-Evolving Interface</h2>
+                <p>APIキーを入力して Start を押すとシミュレーションが開始します</p>
+                <p style="font-size: 11px; color: #666; margin-top: 10px;">APIキーはローカルストレージに保存されます</p>
+            </div>
+        </div>
+
+        <!-- Top Brain Area -->
+        <div id="brain-view">
+            <div class="universe-header" style="position:absolute; top:5px; left:5px; z-index:10; background:none;">
+                Knowledge Graph (Global Mind)</div>
+            <div id="debug-overlay" class="debug-overlay">Waiting for API Key...</div>
+            <!-- Legend -->
+            <div class="kg-legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background:#3b82f6"></div>Abstract Logic
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background:#0f0"></div>UI Interface
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background:yellow"></div>Active Thought
+                </div>
+            </div>
+        </div>
+
+        <!-- Multiverse Area -->
+        <div id="multiverse">
+            <div id="universe-child" class="universe">
+                <div class="universe-header" style="color:orange">Universe: Child (Student) <span id="iq-child"
+                        style="font-size:9px; color:#666; margin-left:10px;">IQ: 0</span>
+                    <div id="target-child" class="assignment-card">Target: ?</div>
+                </div>
+                <div id="recommendation-child" class="recommendation-panel"></div>
+                <div class="universe-content" id="content-child"></div>
+                <div id="log-child" class="thought-log"></div>
+            </div>
+            <div id="universe-accountant" class="universe">
+                <div class="universe-header" style="color:cyan">Universe: Accountant (Professional) <span id="iq-accountant"
+                        style="font-size:9px; color:#666; margin-left:10px;">IQ: 0</span>
+                    <div id="target-accountant" class="assignment-card">Target: ?</div>
+                </div>
+                <div id="recommendation-accountant" class="recommendation-panel"></div>
+                <div class="universe-content" id="content-accountant"></div>
+                <div id="log-accountant" class="thought-log"></div>
+            </div>
+            <div id="universe-engineer" class="universe">
+                <div class="universe-header" style="color:lime">Universe: Engineer (Builder) <span id="iq-engineer"
+                        style="font-size:9px; color:#666; margin-left:10px;">IQ: 0</span>
+                    <div id="target-engineer" class="assignment-card">Target: ?</div>
+                </div>
+                <div id="recommendation-engineer" class="recommendation-panel"></div>
+                <div class="universe-content" id="content-engineer"></div>
+                <div id="log-engineer" class="thought-log"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Control Panel Logic ---
+        const STORAGE_KEY = 'gemini_api_key';
+        const apiKeyInput = document.getElementById('api-key-input');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const statusIndicator = document.getElementById('status-indicator');
+        const waitingOverlay = document.getElementById('waiting-overlay');
+
+        // Load saved API key
+        const savedKey = localStorage.getItem(STORAGE_KEY);
+        if (savedKey) {
+            apiKeyInput.value = savedKey;
+        }
+
+        // Enable/disable start button based on input
+        apiKeyInput.addEventListener('input', () => {
+            startBtn.disabled = apiKeyInput.value.trim().length < 10;
+        });
+        startBtn.disabled = apiKeyInput.value.trim().length < 10;
+
+        let isRunning = false;
+
+        startBtn.addEventListener('click', () => {
+            const key = apiKeyInput.value.trim();
+            if (key.length < 10) return;
+
+            // Save to localStorage
+            localStorage.setItem(STORAGE_KEY, key);
+
+            // Initialize LLM Bridge with key
+            if (window.llmBridge) {
+                window.llmBridge.apiKey = key;
+            }
+
+            // Start simulation
+            startSimulation();
+        });
+
+        stopBtn.addEventListener('click', () => {
+            stopSimulation();
+        });
+
+        function startSimulation() {
+            isRunning = true;
+            waitingOverlay.classList.add('hidden');
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
+            statusIndicator.textContent = 'Running';
+            statusIndicator.className = 'running';
+
+            // Start the agent simulator
+            if (window.agentSimulator) {
+                window.agentSimulator.start();
+            }
+        }
+
+        function stopSimulation() {
+            isRunning = false;
+            startBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+            statusIndicator.textContent = 'Stopped';
+            statusIndicator.className = 'stopped';
+
+            // Stop the agent simulator
+            if (window.agentSimulator) {
+                window.agentSimulator.stop();
+            }
+        }
+
+        // --- Global Configuration ---
+        const Personas = {
+            Child: { name: 'Child', color: 'orange', tickRate: 800 },
+            Accountant: { name: 'Accountant', color: 'cyan', tickRate: 1200 },
+            Engineer: { name: 'Engineer', color: 'lime', tickRate: 500 }
+        };
+        window.Personas = Personas;
+
+        // --- 1. Friction Logger (Multiverse Aware) ---
+        class FrictionLogger {
+            constructor() {
+                this.logs = [];
+                this.activemetrics = {
+                    Child: { dwellTime: 0, turbulence: 0, backtracking: 0 },
+                    Accountant: { dwellTime: 0, turbulence: 0, backtracking: 0 },
+                    Engineer: { dwellTime: 0, turbulence: 0, backtracking: 0 }
+                };
+                this.lastPosition = { x: 0, y: 0 };
+                this.lastTime = Date.now();
+                this.initListeners();
+                console.log("Friction Multiverse System Online.");
+            }
+
+            initListeners() {
+                document.addEventListener('mousemove', (e) => this.trackMovement(e));
+                document.addEventListener('click', (e) => this.trackClick(e));
+                document.addEventListener('keydown', (e) => this.trackKey(e));
+            }
+
+            getContext(e) {
+                const universe = e.target.closest('.universe');
+                if (universe) {
+                    if (universe.id.includes('child')) return 'Child';
+                    if (universe.id.includes('accountant')) return 'Accountant';
+                    if (universe.id.includes('engineer')) return 'Engineer';
+                }
+                if (e.simulationContext && e.simulationContext.persona_id) {
+                    const pid = e.simulationContext.persona_id;
+                    return pid.charAt(0).toUpperCase() + pid.slice(1);
+                }
+                return null;
+            }
+
+            trackMovement(e) {
+                const contextName = this.getContext(e);
+                if (!contextName || !this.activemetrics[contextName]) return;
+
+                const m = this.activemetrics[contextName];
+                const now = Date.now();
+                const dt = now - this.lastTime;
+
+                const dx = e.clientX - this.lastPosition.x;
+                const dy = e.clientY - this.lastPosition.y;
+                const speed = Math.sqrt(dx * dx + dy * dy) / (dt + 1);
+
+                if (e.simulationContext && e.simulationContext.intent_guess && e.simulationContext.intent_guess.includes("FRUSTRATION")) {
+                    m.turbulence += 1.0;
+                } else if (speed > 2) {
+                    m.turbulence += 0.2;
+                } else {
+                    m.turbulence = Math.max(0, m.turbulence - 0.05);
+                }
+
+                if (speed < 0.1) {
+                    m.dwellTime += dt;
+                } else {
+                    m.dwellTime = 0;
+                }
+
+                this.lastPosition = { x: e.clientX, y: e.clientY };
+                this.lastTime = now;
+                this.emitStatus();
+            }
+
+            trackKey(e) {
+                const contextName = this.getContext(e);
+                if (contextName && this.activemetrics[contextName]) {
+                    if (e.key === 'Backspace') this.activemetrics[contextName].backtracking++;
+                    this.emitStatus();
+                }
+            }
+
+            trackClick(e) {
+                const contextName = this.getContext(e);
+                if (contextName && this.activemetrics[contextName]) {
+                    this.activemetrics[contextName].dwellTime = 0;
+                    this.emitStatus();
+                }
+            }
+
+            logEvent(type, context, metadata = {}) {
+                this.logs.push({ type, context, metadata, timestamp: Date.now() });
+                if (type === 'dwell_hazard' && context.persona_id) {
+                    const ctx = context.persona_id;
+                    if (this.activemetrics[ctx]) this.activemetrics[ctx].dwellTime += 1000;
+                }
+            }
+
+            logInternalThought(context, text) {
+                const logId = `log-${context.toLowerCase()}`;
+                const container = document.getElementById(logId);
+                if (!container) return;
+
+                const entry = document.createElement('div');
+                entry.className = 'thought-entry';
+                entry.innerText = `> ${text}`;
+
+                const p = window.Personas?.[context];
+                entry.style.borderColor = p?.color || '#888';
+                if (p && p.name === 'Engineer') entry.style.fontFamily = "'Orbitron', monospace";
+
+                container.insertBefore(entry, container.firstChild);
+                if (container.children.length > 10) {
+                    container.removeChild(container.lastChild);
+                }
+            }
+
+            emitStatus() {
+                const overlay = document.getElementById('debug-overlay');
+                if (overlay) {
+                    const llmStatus = window.llmBridge?.apiKey ? '<span style="color:#0f0">Connected</span>' : '<span style="color:#f00">Disconnected</span>';
+                    let html = `<div><strong>Multiverse Status</strong></div>`;
+                    html += `<div style="font-size:9px; margin-bottom:5px;">LLM Bridge: ${llmStatus}</div>`;
+
+                    for (const [ctx, m] of Object.entries(this.activemetrics)) {
+                        const stage = window.architect?.contextState[ctx]?.stage || 0;
+                        const iqBonus = window.architect?.contextState[ctx]?.iqBonus || 0;
+                        html += `<div style="margin-top:5px; border-top:1px solid #555"><strong>${ctx} (S:${stage})</strong><br>
+                         Turb: ${m.turbulence.toFixed(2)} | Dwell: ${m.dwellTime.toFixed(0)}</div>`;
+
+                        const iqEl = document.getElementById(`iq-${ctx.toLowerCase()}`);
+                        if (iqEl) iqEl.innerText = `IQ: ${100 + (stage * 20) + iqBonus}`;
+                    }
+                    overlay.innerHTML = html;
+                }
+            }
+        }
+
+        // --- 2.5 LLM Bridge (Gemini Integration) ---
+        class LLMBridge {
+            constructor() {
+                this.apiKey = null; // Will be set from localStorage/form
+                this.endpoint = "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent";
+            }
+
+            async request(p, context) {
+                if (!this.apiKey) return null;
+
+                const buttons = context.buttons || [];
+                const result = context.result || 0;
+                const target = context.target || "?";
+
+                const prompt = `You are the mathematical logic behind the persona "${p.name}".
+Current UI buttons: [${buttons.join(', ')}]
+Current result: ${result}
+Active Task: "${target}"
+
+The user is observing. Provide high-quality, LOGICAL advice.
+- Interpret the task (e.g. if task is "1+1", your target is 2).
+- If you have numpad keys (0-9), suggest entering the correct solution directly.
+- If the current result is wrong, suggest clicking 'CLEAR' first.
+- If you lack a tool helpful for this task (like 'Clear' or 'Sin'), use 'request_feature'.
+
+Return ONLY a JSON object:
+{
+  "thought": "Internal logical reasoning in English. Be concise.",
+  "recommendation": "Direct advice in JAPANESE. e.g. 'ターゲットの${target}を入力しましょう' or 'まずはCLEARでリセットしましょう'. Max 15 words.",
+  "action": "click" | "request_feature" | "wait",
+  "feature": "Name of logic to request (e.g. 'Clear', 'Sin', 'Root')",
+  "target_button": "Label of button to click if action is click"
+}`;
+
+                try {
+                    const response = await fetch(`${this.endpoint}?key=${this.apiKey}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: prompt }] }]
+                        })
+                    });
+                    const data = await response.json();
+                    if (data.error) {
+                        console.error("Gemini API Error:", data.error.message);
+                        return null;
+                    }
+                    if (!data.candidates || !data.candidates[0]) return null;
+
+                    const text = data.candidates[0].content.parts[0].text;
+                    const jsonMatch = text.match(/\{.*\}/s);
+                    return jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+                } catch (e) {
+                    console.error("LLM Bridge Request failed:", e.message);
+                    return null;
+                }
+            }
+
+            async defineFeature(featureId) {
+                if (!this.apiKey) return null;
+                const prompt = `Define the mathematical function "${featureId}".
+Return ONLY a JSON object:
+{
+  "description": "Brief English description of what it does",
+  "category": "Arithmetic" | "Science" | "Business" | "Utility",
+  "logic_type": "unary" | "binary" | "constant"
+}`;
+                try {
+                    const response = await fetch(`${this.endpoint}?key=${this.apiKey}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    });
+                    const data = await response.json();
+                    const text = data.candidates[0].content.parts[0].text;
+                    const jsonMatch = text.match(/\{.*\}/s);
+                    return jsonMatch ? JSON.parse(jsonMatch[0]) : { description: "Dynamic Logic", category: "Utility", logic_type: "unary" };
+                } catch (e) {
+                    return { description: "Dynamic Logic", category: "Utility", logic_type: "unary" };
+                }
+            }
+        }
+        window.llmBridge = new LLMBridge();
+
+        // --- 2. Knowledge Graph (Namespaced) ---
+        class KnowledgeGraph {
+            constructor() {
+                this.nodes = new Map();
+                this.edges = [];
+                this.initGenesis();
+            }
+
+            addNode(id, type, properties = {}) {
+                if (this.nodes.has(id)) return;
+                this.nodes.set(id, { id, type, properties });
+            }
+
+            addEdge(source, target, relation) {
+                this.edges.push({ source, target, relation });
+            }
+
+            initGenesis() {
+                this.addNode("Concept:UIElement", "Abstract");
+                this.addNode("Concept:Button", "UIElement");
+                this.addNode("Concept:Input", "UIElement");
+
+                this.addNode("Logic:Sum", "Function", { body: "return args[0] + args[1]" });
+                this.addNode("Logic:Subtract", "Function", { body: "return args[0] - args[1]" });
+                this.addNode("Logic:Multiply", "Function", { body: "return args[0] * args[1]" });
+                this.addNode("Logic:Divide", "Function", { body: "return args[0] / args[1]" });
+                this.addNode("Logic:Append", "Function", { description: "Append digit" });
+                this.addNode("Logic:Clear", "Function", { description: "Clear all inputs" });
+
+                this.addNode("Concept:Calculator", "Archetype", { goal: "Functional Arithmetic Tool" });
+                this.addNode("Concept:NumpadGrid", "Architecture", { layout: "3x3 Grid" });
+                this.addNode("Concept:ResultScreen", "Architecture", { type: "Output" });
+
+                this.addEdge("Concept:Calculator", "Concept:NumpadGrid", "requires");
+                this.addEdge("Concept:Calculator", "Concept:ResultScreen", "requires");
+                this.addEdge("Concept:NumpadGrid", "Concept:Button", "uses");
+            }
+
+            getNodesByContext(context) {
+                return Array.from(this.nodes.values()).filter(n => n.id.startsWith(`${context}:`));
+            }
+
+            query(predicate) {
+                return Array.from(this.nodes.values()).filter(predicate);
+            }
+        }
+
+        // --- 3. Agent Simulator (Scoped) ---
+        class AgentSimulator {
+            constructor() {
+                this.activePersonas = [];
+                this.intervalIds = [];
+                this.personaState = {};
+            }
+
+            addPersona(persona) {
+                this.activePersonas.push(persona);
+                this.personaState[persona.name] = { lastReflection: 0 };
+            }
+
+            start() {
+                this.stop();
+                this.activePersonas.forEach(p => {
+                    const id = setInterval(() => this.tick(p), p.tickRate || 500);
+                    this.intervalIds.push(id);
+                });
+            }
+
+            stop() {
+                this.intervalIds.forEach(id => clearInterval(id));
+                this.intervalIds = [];
+            }
+
+            async tick(p) {
+                const action = this.decideAction(p);
+                this.dispatch(action, p);
+
+                const state = this.personaState[p.name];
+                const isStagnant = Date.now() - (state.lastProgress || Date.now()) > 15000;
+                const metrics = window.frictionSystem.activemetrics[p.name];
+                const isFrustrated = metrics.turbulence > 12;
+                const cooldown = Date.now() - state.lastReflection > 30000;
+
+                if ((isStagnant || isFrustrated) && cooldown) {
+                    state.lastReflection = Date.now();
+                    this.reflect(p, isStagnant ? "STAGNATION" : "FRUSTRATION");
+                }
+            }
+
+            async reflect(p, reason = "PROACTIVE") {
+                const contentArea = document.getElementById(`content-${p.name.toLowerCase()}`);
+                if (!contentArea) return;
+
+                const buttons = Array.from(contentArea.querySelectorAll('div[id*=":Instance:"], button')).map(b => b.innerText);
+                const result = this.getCurrentResult(contentArea);
+                const target = window.globalExaminer?.currentTask || "Not defined";
+
+                window.frictionSystem.logInternalThought(p.name, `[THINKING] (Reason: ${reason}) Seeking professional advice...`);
+
+                const res = await window.llmBridge.request(p, { buttons, result, target });
+                if (res) {
+                    window.frictionSystem.logInternalThought(p.name, `[LLM THOUGHT] ${res.thought}`);
+
+                    const panel = document.getElementById(`recommendation-${p.name.toLowerCase()}`);
+                    if (panel && res.recommendation) {
+                        panel.innerHTML = `<span class="info-badge">ADVICE</span> ${res.recommendation}`;
+                        panel.classList.add('active');
+                        window.frictionSystem.logInternalThought(p.name, `[ADVICE] ${res.recommendation}`);
+                    }
+
+                    if (res.action === "request_feature" && res.feature) {
+                        if (panel) {
+                            panel.innerHTML = `<span class="info-badge">AUTO-EVOLUTION</span> 助言に基づき、新機能「${res.feature}」を実装中...`;
+                            panel.classList.add('active');
+                            setTimeout(() => { if (panel.classList.contains('active')) panel.classList.remove('active'); }, 5000);
+                        }
+                        window.architect.handleFeatureRequest(p.name, res.feature);
+                    } else if (panel && res.recommendation) {
+                        setTimeout(() => { if (panel.classList.contains('active')) panel.classList.remove('active'); }, 10000);
+                    }
+                }
+            }
+
+            getCurrentResult(root) {
+                const resultsContainer = root.querySelector(".results-container");
+                if (!resultsContainer || resultsContainer.children.length === 0) return 0;
+                const lastLog = resultsContainer.firstChild.innerText;
+                const match = lastLog.match(/= ([\d.]+)/);
+                return match ? parseFloat(match[1]) : 0;
+            }
+
+            decideAction(p) {
+                const contextName = p.name;
+                const contentArea = document.getElementById(`content-${contextName.toLowerCase()}`);
+                if (!contentArea) return { type: 'wait' };
+
+                const buttons = Array.from(contentArea.querySelectorAll('div[id*=":Instance:"], button'));
+                const inputs = Array.from(contentArea.querySelectorAll('input'));
+                const numpads = buttons.filter(b => b.id.includes("Key"));
+
+                const target = window.globalExaminer?.targetSolution;
+                const currentResult = this.getCurrentResult(contentArea);
+
+                if (buttons.length === 0 && inputs.length === 0) {
+                    const rect = contentArea.getBoundingClientRect();
+                    return {
+                        type: 'cursor_shake',
+                        x: rect.left + Math.random() * rect.width,
+                        y: rect.top + Math.random() * rect.height,
+                        intent: "FRUSTRATION: WHERE IS MY INTERFACE??"
+                    };
+                }
+
+                if (target !== undefined) {
+                    const hasMistake = inputs.some(i => i.value !== "" && i.value !== "0" && !target.toString().startsWith(i.value));
+                    const clearBtn = buttons.find(b => b.id.includes("ClearBtn"));
+                    if (hasMistake && clearBtn) {
+                        const rect = clearBtn.getBoundingClientRect();
+                        return { type: 'click', targetId: clearBtn.id, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, intent: "MISTAKE DETECTED: Clearing input." };
+                    }
+                }
+
+                if (target && Math.abs(currentResult - target) > 0.01) {
+                    const state = this.personaState[p.name];
+                    if (currentResult !== state.lastResultValue) {
+                        state.lastProgress = Date.now();
+                        state.lastResultValue = currentResult;
+                        const panel = document.getElementById(`recommendation-${p.name.toLowerCase()}`);
+                        if (panel) panel.classList.remove('active');
+                    }
+
+                    if (numpads.length > 0) {
+                        const targetStr = Math.floor(target).toString();
+                        const targetInput = inputs.find(i => i.value === "" || i.value === "0" || targetStr.startsWith(i.value));
+
+                        if (targetInput) {
+                            const currentVal = (targetInput.value === "0" || targetInput.value === "") ? "" : targetInput.value;
+
+                            if (currentVal === targetStr) {
+                                const opBtn = buttons.find(b => !b.id.includes("Key") && !b.id.includes("Input"));
+                                if (opBtn) {
+                                    const rect = opBtn.getBoundingClientRect();
+                                    return { type: 'click', targetId: opBtn.id, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, intent: "Finalizing target." };
+                                }
+                            } else {
+                                const nextDigit = targetStr[currentVal.length];
+                                if (nextDigit !== undefined) {
+                                    const keyBtn = numpads.find(b => b.id.includes(`Key${nextDigit}`));
+                                    if (keyBtn) {
+                                        const rect = keyBtn.getBoundingClientRect();
+                                        return { type: 'click', targetId: keyBtn.id, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, intent: `Entering ${nextDigit}` };
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (p.name === 'Engineer') {
+                    if (numpads.length > 0) {
+                        const targetKey = numpads[Math.floor(Math.random() * numpads.length)];
+                        const rect = targetKey.getBoundingClientRect();
+                        return { type: 'click', targetId: targetKey.id, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, intent: "Exploring Numpad." };
+                    }
+                }
+
+                if (p.name === 'Accountant' || p.name === 'Child') {
+                    const filledInputs = inputs.filter(i => i.value !== "" && i.value !== "0");
+                    if (filledInputs.length >= 1 && buttons.length > 0) {
+                        const opBtn = buttons.find(b => !b.id.includes("Key") && !b.id.includes("Input"));
+                        if (opBtn) {
+                            const rect = opBtn.getBoundingClientRect();
+                            return { type: 'click', targetId: opBtn.id, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, intent: "Executing operation." };
+                        }
+                    }
+
+                    const emptyInput = inputs.find(i => i.value === "" || i.value === "0");
+                    if (emptyInput && numpads.length === 0) {
+                        const rect = emptyInput.getBoundingClientRect();
+                        return { type: 'input_data', targetId: emptyInput.id, value: Math.floor(Math.random() * 50) + 1, intent: "Manual input (Legacy/Fallback)." };
+                    }
+                }
+
+                if (p.name === 'Child' && Math.random() < 0.2) {
+                    const rect = contentArea.getBoundingClientRect();
+                    return { type: 'cursor_shake', x: rect.left + Math.random() * rect.width, y: rect.top + Math.random() * rect.height, intent: "PLAYFUL CHAOS" };
+                }
+
+                const rect = contentArea.getBoundingClientRect();
+                return { type: 'move', x: rect.left + Math.random() * rect.width, y: rect.top + Math.random() * rect.height, intent: "Observing." };
+            }
+
+            dispatch(action, persona) {
+                const context = { persona_id: persona.name, intent_guess: action.intent };
+                if (action.type === 'click') {
+                    const el = document.getElementById(action.targetId);
+                    if (el) {
+                        el.click();
+                        const edges = window.knowledgeGraph.edges.filter(e => e.source === action.targetId);
+                        edges.forEach(e => { if (window.visionOverlay) window.visionOverlay.highlightNode(e.target); });
+                    }
+                    this.showCursor(action.x, action.y, persona.color);
+                } else if (action.type === 'input_data') {
+                    const el = document.getElementById(action.targetId);
+                    if (el) {
+                        el.value = action.value;
+                        if (action.x) this.showCursor(action.x, action.y, persona.color);
+                    }
+                } else if (action.type === 'cursor_shake' || action.type === 'move') {
+                    const evt = new MouseEvent('mousemove', { bubbles: true, clientX: action.x, clientY: action.y });
+                    evt.simulationContext = context;
+                    const rootId = `universe-${persona.name.toLowerCase()}`;
+                    const root = document.getElementById(rootId);
+                    if (root) root.dispatchEvent(evt);
+                    this.showCursor(action.x, action.y, persona.color);
+                } else if (action.type === 'dwell_hazard') {
+                    if (window.frictionSystem) window.frictionSystem.logEvent('dwell_hazard', context, { duration: 1500 });
+                    this.showCursor(action.x, action.y, persona.color);
+                }
+            }
+
+            showCursor(x, y, color) {
+                let c = document.getElementById(`cursor-${color}`);
+                if (!c) {
+                    c = document.createElement('div');
+                    c.id = `cursor-${color}`;
+                    c.style.position = 'absolute';
+                    c.style.width = '15px';
+                    c.style.height = '15px';
+                    c.style.backgroundColor = color;
+                    c.style.borderRadius = '50%';
+                    c.style.pointerEvents = 'none';
+                    c.style.zIndex = '9999';
+                    c.style.transition = "all 0.1s";
+                    document.body.appendChild(c);
+                }
+                c.style.left = x + 'px';
+                c.style.top = y + 'px';
+            }
+        }
+
+        // --- 4. Architect (Multiverse) ---
+        class Architect {
+            constructor() {
+                this.contexts = ['Child', 'Accountant', 'Engineer'];
+                this.contextState = {
+                    Child: { stage: 0, iqBonus: 0 },
+                    Accountant: { stage: 0, iqBonus: 0 },
+                    Engineer: { stage: 0, iqBonus: 0 }
+                };
+                setInterval(() => this.observe(), 500);
+                this.bootstrap();
+            }
+
+            synthesizeStyle(ctx, componentType, logicId = null) {
+                const persona = window.Personas?.[ctx];
+                const metrics = window.frictionSystem?.activemetrics?.[ctx];
+                if (!persona || !metrics) return { label: componentType, visuals: { color: "#888" } };
+
+                const turbulence = metrics.turbulence || 0;
+                let color = persona.color;
+                if (turbulence > 10) color = "#ff4444";
+                else if (Math.random() < 0.05) color = "#ffd700";
+
+                let label = componentType;
+                if (logicId) {
+                    const name = logicId.split(':').pop();
+                    label = name.toUpperCase();
+                }
+
+                if (componentType.startsWith("Key")) {
+                    label = componentType.replace("Key", "");
+                }
+
+                const dict = {
+                    'Logic:Sum': {
+                        Accountant: ["REVENUE (+)", "DEPOSIT (+)", "SUM (+)"],
+                        Engineer: ["SUM (+)", "JOIN (+)", "INCREMENT (+)"],
+                        Child: ["MORE (+)", "PLUS (+)", "GET (+)"]
+                    },
+                    'Logic:Clear': {
+                        Accountant: ["VOID (C)", "RESET (C)", "CLEAR (C)"],
+                        Engineer: ["NULL (C)", "WIPE (C)", "CLEAR (C)"],
+                        Child: ["ERASE (C)", "OOPS (C)", "CLEAR (C)"]
+                    },
+                    'Logic:Subtract': {
+                        Accountant: ["PROFIT (-)", "LOSS (-)", "MARGIN (-)"],
+                        Engineer: ["DIFF (-)", "SUB (-)", "REMOVE (-)"],
+                        Child: ["TAKE (-)", "LESS (-)", "AWAY (-)"]
+                    },
+                    'Logic:Multiply': {
+                        Accountant: ["TAX (×)", "GROWTH (×)", "MULT (×)"],
+                        Engineer: ["SCALE (×)", "BOOST (×)", "EXTEND (×)"],
+                        Child: ["LOTS (×)", "MANY (×)", "BIGGER (×)"]
+                    },
+                    'Logic:Divide': {
+                        Accountant: ["RATIO (÷)", "SPLIT (÷)", "SHARE (÷)"],
+                        Engineer: ["DIV (÷)", "SLICE (÷)", "SECTION (÷)"],
+                        Child: ["FRIENDS (÷)", "BREAK (÷)", "SPLIT (÷)"]
+                    },
+                    'Logic:Append': {
+                        Accountant: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+                        Engineer: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+                        Child: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+                    }
+                };
+
+                if (logicId && dict[logicId]) {
+                    const ctxDict = dict[logicId][ctx];
+                    if (ctxDict) {
+                        if (logicId === 'Logic:Append') {
+                            const match = componentType.match(/\d+/);
+                            const digit = match ? match[0] : componentType;
+                            label = ctxDict[parseInt(digit)] || digit;
+                        } else {
+                            label = ctxDict[Math.floor(Math.random() * ctxDict.length)] || label;
+                        }
+                    }
+                }
+
+                if (label === "Concept:Button" && logicId) {
+                    label = logicId.split(':').pop().toUpperCase();
+                }
+
+                const visuals = { color };
+                if (ctx === 'Engineer') visuals.fontFamily = "'Orbitron', monospace";
+                if (ctx === 'Child') visuals.borderRadius = "20px";
+
+                return { label, visuals };
+            }
+
+            bootstrap() {}
+
+            observe() {
+                if (!window.frictionSystem) return;
+                this.contexts.forEach(ctx => {
+                    this.analyzeContext(ctx);
+                    this.updateDynamicStyles(ctx);
+                });
+
+                if (Math.random() < 0.3) {
+                    this.scanForAdoption('Accountant', 'Engineer');
+                    this.scanForAdoption('Child', 'Engineer');
+                    this.scanForAdoption('Child', 'Accountant');
+                }
+            }
+
+            updateDynamicStyles(ctx) {
+                const metrics = window.frictionSystem.activemetrics[ctx];
+                const nodes = window.knowledgeGraph.getNodesByContext(ctx);
+
+                nodes.forEach(node => {
+                    if (node.type === "UIInstance" && node.properties && node.properties.visuals) {
+                        if (metrics.turbulence > 15) {
+                            node.properties.visuals.borderColor = "#ff0000";
+                            node.properties.visuals.boxShadow = "0 0 15px rgba(255,0,0,0.5)";
+                        } else {
+                            node.properties.visuals.borderColor = null;
+                            node.properties.visuals.boxShadow = null;
+                        }
+                    }
+                });
+            }
+
+            scanForAdoption(adopterCtx, innovatorCtx) {
+                const adopterMetrics = window.frictionSystem.activemetrics[adopterCtx];
+                if (adopterMetrics.dwellTime < 200 && adopterMetrics.turbulence < 2) return;
+
+                const innovatorNodes = window.knowledgeGraph.getNodesByContext(innovatorCtx);
+                const adopterNodes = window.knowledgeGraph.getNodesByContext(adopterCtx);
+
+                innovatorNodes.forEach(node => {
+                    const featureId = node.id.split(':').pop().trim();
+                    const adoptedId = `${adopterCtx}:Instance:${featureId}`;
+
+                    if (!adopterNodes.find(n => n.id === adoptedId)) {
+                        console.warn(`[Cross-Pollination] ${adopterCtx} ADOPTS ${featureId} from ${innovatorCtx}.`);
+                        const logicEdge = window.knowledgeGraph.edges.find(e => e.source === node.id && e.relation === "triggers");
+                        const role = node.properties.role || node.properties.concept.replace("Concept:", "");
+                        const style = this.synthesizeStyle(adopterCtx, role, logicEdge?.target || "");
+
+                        window.knowledgeGraph.addNode(adoptedId, "UIInstance", {
+                            concept: node.properties.concept,
+                            role: role,
+                            label: style.label,
+                            visuals: style.visuals
+                        });
+                        if (logicEdge) window.knowledgeGraph.addEdge(adoptedId, logicEdge.target, "triggers");
+                    }
+                });
+
+                window.frictionSystem.activemetrics[adopterCtx].dwellTime = 0;
+            }
+
+            analyzeContext(ctx) {
+                const metrics = window.frictionSystem?.activemetrics?.[ctx];
+                const state = this.contextState[ctx];
+                if (!metrics || !state) return;
+
+                const turbulence = metrics.turbulence || 0;
+                const dwell = metrics.dwellTime || 0;
+
+                if (turbulence > 0.5) {
+                    if (state.stage === 0) {
+                        this.evolve_step1(ctx);
+                    } else if (state.stage === 1) {
+                        this.evolve_step2(ctx);
+                    } else if (state.stage === 2 && ctx === 'Accountant') {
+                        this.evolve_step3_accountant(ctx);
+                    }
+                }
+
+                if (state.stage >= 2 && Math.random() < 0.1) {
+                    this.proactiveEvolution(ctx);
+                }
+
+                if (state.stage >= 2 && state.stage < 4) {
+                    const contentRoot = document.getElementById(`content-${ctx.toLowerCase()}`);
+                    if (contentRoot) {
+                        const results = Array.from(contentRoot.childNodes).filter(n => {
+                            return n.nodeType === 1 && n.tagName === 'DIV' && n.innerText.trim().startsWith('=');
+                        });
+                        if (results.length >= 3) {
+                            this.evolve_step4_display(ctx);
+                        }
+                    }
+                }
+
+                if (ctx === 'Child' && state.stage >= 2 && state.stage < 6 && Math.random() < 0.05) {
+                    this.evolve_step6_child(ctx);
+                }
+
+                if (ctx === 'Accountant' && state.stage >= 3 && state.stage < 7 && Math.random() < 0.05) {
+                    this.evolve_step7_accountant(ctx);
+                }
+
+                if (ctx === 'Engineer' && state.stage === 2 && (dwell > 300 || turbulence > 5)) {
+                    if (Math.random() < 0.3) {
+                        this.evolve_step5_engineer(ctx);
+                    }
+                }
+            }
+
+            handleFeatureRequest(ctx, feature) {
+                const featureId = feature.startsWith("Logic:") ? feature : `Logic:${feature}`;
+
+                if (window.knowledgeGraph.nodes.has(`${ctx}:Instance:${featureId.replace(":", "_")}`)) return;
+
+                if (feature === "Clear") {
+                    this.evolve_step1_clear(ctx);
+                } else if (feature === "Sum" || feature === "Add") {
+                    this.evolve_step1(ctx);
+                } else {
+                    if (!window.knowledgeGraph.nodes.has(featureId)) {
+                        window.knowledgeGraph.addNode(featureId, "Function", { description: "LLM Requested logic" });
+                    }
+                    const instanceId = `${ctx}:Instance:${featureId.replace(":", "_")}`;
+                    const style = this.synthesizeStyle(ctx, "Button", featureId);
+                    window.knowledgeGraph.addNode(instanceId, "UIInstance", {
+                        concept: "Concept:Button",
+                        role: featureId.split(':').pop(),
+                        label: style.label,
+                        visuals: style.visuals
+                    });
+                    window.knowledgeGraph.addEdge(instanceId, featureId, "triggers");
+                }
+
+                if (window.supervisor) window.supervisor.lastActivity[ctx] = Date.now();
+            }
+
+            proactiveEvolution(ctx) {
+                const state = this.contextState[ctx];
+                if (state.stage === 2) {
+                    if (ctx === 'Child' && Math.random() < 0.1) this.evolve_step6_child(ctx);
+                }
+            }
+
+            evolve_step1(ctx) {
+                this.contextState[ctx].stage = 1;
+                const id = `${ctx}:Instance:SubmitBtn`;
+                const style = this.synthesizeStyle(ctx, "Button", "Logic:Sum");
+                window.knowledgeGraph.addNode(id, "UIInstance", { concept: "Concept:Button", role: "SubmitBtn", label: style.label, visuals: style.visuals });
+                window.knowledgeGraph.addEdge(id, "Logic:Sum", "triggers");
+                this.evolve_step1_clear(ctx);
+                window.frictionSystem.activemetrics[ctx].turbulence = 0;
+            }
+
+            evolve_step1_clear(ctx) {
+                const id = `${ctx}:Instance:ClearBtn`;
+                const style = this.synthesizeStyle(ctx, "Button", "Logic:Clear");
+                window.knowledgeGraph.addNode(id, "UIInstance", { concept: "Concept:Button", role: "ClearBtn", label: style.label, visuals: style.visuals });
+                window.knowledgeGraph.addEdge(id, "Logic:Clear", "triggers");
+            }
+
+            evolve_step2(ctx) {
+                this.contextState[ctx].stage = 2;
+                if (ctx === 'Child') {
+                    window.knowledgeGraph.addNode(`${ctx}:Instance:InputA`, "UIInstance", { concept: "Concept:Input", role: "InputA", label: "Value A" });
+                    window.knowledgeGraph.addNode(`${ctx}:Instance:InputB`, "UIInstance", { concept: "Concept:Input", role: "InputB", label: "Value B" });
+                } else {
+                    window.knowledgeGraph.addNode(`${ctx}:Instance:MainInput`, "UIInstance", { concept: "Concept:Input", role: "MainInput", label: "0" });
+                }
+                this.evolve_step1_clear(ctx);
+                window.frictionSystem.activemetrics[ctx].turbulence = 0;
+            }
+
+            evolve_step3_accountant(ctx) {
+                this.contextState[ctx].stage = 3;
+                const style = this.synthesizeStyle(ctx, "Button", "Logic:Subtract");
+                window.knowledgeGraph.addNode(`${ctx}:Instance:SubBtn`, "UIInstance", { concept: "Concept:Button", role: "SubBtn", label: style.label, visuals: style.visuals });
+                window.knowledgeGraph.addEdge(`${ctx}:Instance:SubBtn`, "Logic:Subtract", "triggers");
+                window.frictionSystem.activemetrics[ctx].turbulence = 0;
+            }
+
+            evolve_step4_display(ctx) {
+                this.contextState[ctx].stage = 4;
+                const id = `${ctx}:Instance:Display`;
+                window.knowledgeGraph.addNode(id, "UIInstance", {
+                    concept: "Concept:Display",
+                    label: "RESULT: --",
+                    visuals: { background: "#000", color: "#0f0", border: "1px solid #333", width: "80%", padding: "10px" }
+                });
+            }
+
+            evolve_numpad(ctx) {
+                for (let i = 0; i <= 9; i++) {
+                    const style = this.synthesizeStyle(ctx, `Key${i}`, "Logic:Append");
+                    window.knowledgeGraph.addNode(`${ctx}:Instance:Key${i}`, "UIInstance", {
+                        concept: "Concept:Button",
+                        role: `Key${i}`,
+                        label: style.label,
+                        visuals: style.visuals
+                    });
+                    window.knowledgeGraph.addEdge(`${ctx}:Instance:Key${i}`, "Logic:Append", "triggers");
+                }
+            }
+
+            evolve_step5_engineer(ctx) {
+                this.contextState[ctx].stage = 5;
+                this.evolve_numpad(ctx);
+                const multStyle = this.synthesizeStyle(ctx, "Button", "Logic:Multiply");
+                window.knowledgeGraph.addNode(`${ctx}:Instance:MultBtn`, "UIInstance", { concept: "Concept:Button", role: "MultBtn", label: multStyle.label, visuals: multStyle.visuals });
+                window.knowledgeGraph.addEdge(`${ctx}:Instance:MultBtn`, "Logic:Multiply", "triggers");
+            }
+
+            evolve_step6_child(ctx) {
+                this.contextState[ctx].stage = 6;
+                const style = this.synthesizeStyle(ctx, "Button", "Logic:Divide");
+                window.knowledgeGraph.addNode(`${ctx}:Instance:DivBtn`, "UIInstance", { concept: "Concept:Button", role: "DivBtn", label: style.label, visuals: style.visuals });
+                window.knowledgeGraph.addEdge(`${ctx}:Instance:DivBtn`, "Logic:Divide", "triggers");
+            }
+
+            evolve_step7_accountant(ctx) {
+                this.contextState[ctx].stage = 7;
+                const multStyle = this.synthesizeStyle(ctx, "Button", "Logic:Multiply");
+                window.knowledgeGraph.addNode(`${ctx}:Instance:MultBtn`, "UIInstance", { concept: "Concept:Button", role: "MultBtn", label: multStyle.label, visuals: multStyle.visuals });
+                window.knowledgeGraph.addEdge(`${ctx}:Instance:MultBtn`, "Logic:Multiply", "triggers");
+
+                const divStyle = this.synthesizeStyle(ctx, "Button", "Logic:Divide");
+                window.knowledgeGraph.addNode(`${ctx}:Instance:DivBtn`, "UIInstance", { concept: "Concept:Button", role: "DivBtn", label: divStyle.label, visuals: divStyle.visuals });
+                window.knowledgeGraph.addEdge(`${ctx}:Instance:DivBtn`, "Logic:Divide", "triggers");
+            }
+        }
+
+        // --- 5. Renderer (Multiverse) ---
+        class Renderer {
+            constructor() {
+                this.renderedNodes = new Set();
+                setInterval(() => this.refresh(), 100);
+            }
+
+            refresh() {
+                if (!window.knowledgeGraph) return;
+                const uiNodes = window.knowledgeGraph.query(n => n.type === "UIInstance");
+                uiNodes.forEach(node => {
+                    if (!this.renderedNodes.has(node.id)) {
+                        this.mount(node);
+                        this.renderedNodes.add(node.id);
+                    }
+                });
+            }
+
+            mount(node) {
+                const parts = node.id.split(':');
+                const context = parts[0];
+
+                const root = document.getElementById(`content-${context.toLowerCase()}`);
+                if (!root) return;
+
+                const el = document.createElement(node.properties.concept === "Concept:Input" ? 'input' : 'div');
+                el.id = node.id;
+
+                el.style.margin = "5px";
+                if (node.properties.concept === "Concept:Button") {
+                    el.style.width = node.properties.visuals?.width || "100px";
+                    el.style.height = node.properties.visuals?.height || "50px";
+                    el.style.backgroundColor = node.properties.visuals?.color || "rgba(255,255,255,0.05)";
+                    el.style.color = "white";
+                    el.style.display = "inline-flex";
+                    el.style.justifyContent = "center";
+                    el.style.alignItems = "center";
+                    el.style.cursor = "pointer";
+                    el.style.borderRadius = node.properties.visuals?.borderRadius || "4px";
+                    el.style.border = "1px solid rgba(255,255,255,0.1)";
+                    el.style.transition = "all 0.2s";
+                    el.innerText = node.properties.label;
+
+                    el.onmouseover = () => { el.style.backgroundColor = "rgba(255,255,255,0.1)"; el.style.transform = "scale(1.05)"; };
+                    el.onmouseout = () => { el.style.backgroundColor = node.properties.visuals?.color || "rgba(255,255,255,0.05)"; el.style.transform = "scale(1)"; };
+
+                    el.onclick = () => {
+                        const logicEdge = window.knowledgeGraph.edges.find(e => e.source === node.id && e.relation === "triggers");
+                        if (logicEdge) {
+                            if (logicEdge.target === "Logic:Append") {
+                                this.executeAppend(context, node.properties.label);
+                            } else {
+                                this.executeLogic(context, logicEdge.target);
+                            }
+                        }
+                    };
+                } else if (node.properties.concept === "Concept:Input") {
+                    el.style.padding = "5px";
+                    el.style.backgroundColor = "#222";
+                    el.style.color = "#0f0";
+                    el.style.border = "1px solid #444";
+                    el.style.borderRadius = "4px";
+                    el.style.width = "60px";
+                    el.placeholder = node.properties.label;
+                    el.type = "number";
+                } else if (node.properties.concept === "Concept:Display") {
+                    el.style.background = "linear-gradient(180deg, #0a0a0a, #000)";
+                    el.style.border = "2px solid #0f0";
+                    el.style.boxShadow = "0 0 10px rgba(0,255,0,0.2)";
+                    el.style.color = "#00ff00";
+                    el.style.padding = "15px";
+                    el.style.marginTop = "15px";
+                    el.style.fontSize = "18px";
+                    el.style.fontWeight = "bold";
+                    el.style.fontFamily = "'Orbitron', monospace";
+                    el.style.width = "85%";
+                    el.style.textAlign = "center";
+                    el.innerText = node.properties.label;
+                }
+
+                if (node.id.includes("Key")) {
+                    let grid = root.querySelector(".numpad-grid");
+                    if (!grid) {
+                        grid = document.createElement("div");
+                        grid.className = "numpad-grid";
+                        root.appendChild(grid);
+                    }
+                    grid.appendChild(el);
+                    const children = Array.from(grid.children);
+                    children.sort((a, b) => {
+                        const getVal = (id) => {
+                            if (id.includes("Key0")) return 10;
+                            const match = id.match(/Key(\d)/);
+                            return match ? parseInt(match[1]) : 99;
+                        };
+                        return getVal(a.id) - getVal(b.id);
+                    });
+                    children.forEach(child => grid.appendChild(child));
+                } else if (node.properties.concept === "Concept:Input" || node.properties.concept === "Concept:Display") {
+                    root.insertBefore(el, root.firstChild);
+                } else {
+                    let controls = root.querySelector(".controls-grid");
+                    if (!controls) {
+                        controls = document.createElement("div");
+                        controls.className = "controls-grid";
+                        root.appendChild(controls);
+                    }
+                    controls.appendChild(el);
+                }
+            }
+
+            executeLogic(context, logicId) {
+                const root = document.getElementById(`content-${context.toLowerCase()}`);
+                const inputs = Array.from(root.querySelectorAll('input'));
+                const args = inputs.map(i => Number(i.value) || 0);
+
+                let result = 0;
+
+                switch (logicId) {
+                    case "Logic:Clear":
+                        inputs.forEach(i => i.value = "0");
+                        result = 0;
+                        window.frictionSystem?.logInternalThought(context, `[SYSTEM] Clear executed.`);
+                        break;
+                    case "Logic:Sum":
+                        result = args.reduce((a, b) => a + b, 0);
+                        window.frictionSystem?.logInternalThought(context, `[SYSTEM] Sum: ${result}`);
+                        break;
+                    case "Logic:Subtract":
+                        result = (args[0] || 0) - (args[1] || 0);
+                        break;
+                    case "Logic:Multiply":
+                        result = (args[0] || 1) * (args[1] || 1);
+                        break;
+                    case "Logic:Divide":
+                        result = (args[0] || 0) / (args[1] || 1);
+                        break;
+                    default:
+                        const baseName = logicId.split(':').pop();
+                        if (baseName === "Addition" || baseName === "Add") {
+                            result = args.reduce((a, b) => a + b, 0);
+                        } else if (typeof Math[baseName] === 'function') {
+                            result = Math[baseName](args[0] || 0);
+                        } else {
+                            result = "ERROR";
+                        }
+                        break;
+                }
+
+                if (typeof result === 'number') result = Math.round(result * 100) / 100;
+
+                if (window.globalExaminer) {
+                    window.globalExaminer.reportResult(context, result);
+                }
+
+                if (window.visionOverlay) {
+                    window.visionOverlay.highlightNode("Concept:Calculator");
+                }
+
+                let container = root.querySelector(".results-container");
+                if (!container) {
+                    container = document.createElement("div");
+                    container.className = "results-container";
+                    root.appendChild(container);
+                }
+
+                const display = root.querySelector('[id$=":Display"]');
+                if (display) {
+                    display.innerText = `RESULT: ${result}`;
+                    display.style.borderColor = "#0f0";
+                    setTimeout(() => display.style.borderColor = "#151515", 500);
+                } else {
+                    const d = document.createElement('div');
+                    d.innerText = `[LOG] = ${result}`;
+                    d.style.color = '#0f0';
+                    d.style.fontSize = '14px';
+                    d.style.opacity = '0.6';
+                    container.insertBefore(d, container.firstChild);
+                    if (container.children.length > 5) container.removeChild(container.lastChild);
+                }
+            }
+
+            executeAppend(context, value) {
+                const root = document.getElementById(`content-${context.toLowerCase()}`);
+                if (!root) return;
+
+                const inputs = Array.from(root.querySelectorAll('input'));
+                if (inputs.length === 0) return;
+
+                let target = inputs.find(i => i === document.activeElement) ||
+                    inputs.find(i => i.value === "" || i.value === "0") ||
+                    inputs[0];
+
+                if (target) {
+                    const current = (target.value === "0") ? "" : target.value;
+                    target.value = current + value;
+                    window.frictionSystem?.logInternalThought(context, `[SYSTEM] Append: ${value}`);
+
+                    target.style.borderColor = "#0f0";
+                    target.style.boxShadow = "0 0 10px rgba(0,255,0,0.5)";
+                    setTimeout(() => {
+                        target.style.borderColor = "#444";
+                        target.style.boxShadow = "none";
+                    }, 200);
+
+                    target.dispatchEvent(new Event('input', { bubbles: true }));
+
+                    if (window.globalExaminer) {
+                        window.globalExaminer.reportResult(context, Number(target.value));
+                    }
+                }
+            }
+        }
+
+        // --- 6. Visualization Overlay ---
+        class VisionOverlay {
+            constructor() {
+                this.container = document.getElementById('brain-view');
+                this.canvas = document.createElement('canvas');
+                this.canvas.id = 'vision-overlay';
+                this.canvas.style.width = '100%';
+                this.canvas.style.height = '100%';
+                this.canvas.style.pointerEvents = 'none';
+                this.container.appendChild(this.canvas);
+
+                this.ctx = this.canvas.getContext('2d');
+                this.highlights = new Map();
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+
+                requestAnimationFrame(() => this.drawLoop());
+            }
+
+            highlightNode(id) {
+                this.highlights.set(id, Date.now() + 1000);
+            }
+
+            resize() {
+                this.canvas.width = this.container.clientWidth;
+                this.canvas.height = this.container.clientHeight;
+            }
+
+            drawLoop() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                if (!window.knowledgeGraph) {
+                    requestAnimationFrame(() => this.drawLoop());
+                    return;
+                }
+
+                const nodes = Array.from(window.knowledgeGraph.nodes.values());
+                const edges = window.knowledgeGraph.edges;
+
+                this.ctx.font = "10px monospace";
+
+                const nodePositions = new Map();
+
+                nodes.forEach((node, i) => {
+                    const el = document.getElementById(node.id);
+                    let x, y;
+
+                    const bW = this.canvas.width;
+                    const bH = this.canvas.height;
+
+                    if (el) {
+                        const context = node.id.split(':')[0];
+                        let homeX = bW / 2;
+                        if (context === 'Child') homeX = bW * 0.15;
+                        if (context === 'Accountant') homeX = bW * 0.5;
+                        if (context === 'Engineer') homeX = bW * 0.85;
+
+                        x = homeX + (Math.sin(i) * (bW * 0.05));
+                        y = 100 + (i % 6) * 60;
+
+                        this.drawNode(x, y, node.id.split(':').pop(), "#0f0", false, node.id);
+                        nodePositions.set(node.id, { x, y });
+                    } else if (node.type === "Abstract" || node.type === "Function") {
+                        const angle = (i / nodes.length) * Math.PI * 2;
+                        x = bW / 2 + Math.cos(angle) * (bW * 0.4);
+                        y = 50 + Math.sin(angle) * 30;
+                        this.drawNode(x, y, node.id.split(':').pop(), "#3b82f6", true, node.id);
+                        nodePositions.set(node.id, { x, y });
+                    }
+                });
+
+                edges.forEach(edge => {
+                    const posS = nodePositions.get(edge.source);
+                    const posT = nodePositions.get(edge.target);
+
+                    if (posS && posT) {
+                        this.ctx.lineWidth = 1;
+                        this.ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+                        if (edge.relation === 'triggers') {
+                            this.ctx.strokeStyle = "rgba(255, 255, 0, 0.2)";
+                            this.ctx.lineWidth = 2;
+                        }
+                        if (edge.relation === 'generated') this.ctx.strokeStyle = "rgba(0, 255, 255, 0.2)";
+
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(posS.x, posS.y);
+                        this.ctx.lineTo(posT.x, posT.y);
+                        this.ctx.stroke();
+
+                        this.ctx.shadowBlur = 5;
+                        this.ctx.shadowColor = this.ctx.strokeStyle;
+                        this.ctx.stroke();
+                        this.ctx.shadowBlur = 0;
+                    }
+                });
+
+                requestAnimationFrame(() => this.drawLoop());
+            }
+
+            drawNode(x, y, label, color, isFloating = false, nodeId = null) {
+                const time = Date.now() / 1000;
+                let pulse = Math.sin(time * 3) * 3;
+
+                const hTime = this.highlights.get(nodeId);
+                let isHighlighted = false;
+                if (hTime && hTime > Date.now()) {
+                    pulse += 10;
+                    isHighlighted = true;
+                }
+
+                const size = (isFloating ? 20 : 15) + pulse;
+
+                this.ctx.shadowBlur = isHighlighted ? 20 : 10;
+                this.ctx.shadowColor = isHighlighted ? "yellow" : color;
+
+                this.ctx.fillStyle = isFloating ? "rgba(59, 130, 246, 0.1)" : "rgba(0, 255, 0, 0.1)";
+                this.ctx.strokeStyle = isHighlighted ? "yellow" : color;
+                this.ctx.lineWidth = isHighlighted ? 3 : 1;
+
+                this.ctx.beginPath();
+                this.ctx.arc(x, y, size, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.stroke();
+
+                this.ctx.shadowBlur = 0;
+                this.ctx.lineWidth = 1;
+                this.ctx.fillStyle = "#fff";
+                this.ctx.fillText(label, x + size + 10, y);
+            }
+        }
+
+        // --- 7. Supervisor ---
+        class Supervisor {
+            constructor() {
+                this.lastActivity = {
+                    Child: Date.now(),
+                    Accountant: Date.now(),
+                    Engineer: Date.now()
+                };
+                this.checkInterval = 10000;
+                setInterval(() => this.review(), this.checkInterval);
+            }
+
+            reportActivity(context, actionType) {
+                if (['click', 'input_data', 'cursor_shake', 'dwell_hazard'].includes(actionType)) {
+                    this.lastActivity[context] = Date.now();
+                }
+            }
+
+            review() {
+                const now = Date.now();
+                const TIMEOUT = 20000;
+
+                Object.keys(this.lastActivity).forEach(ctx => {
+                    const elapsed = now - (this.lastActivity[ctx] || now);
+                    if (elapsed > TIMEOUT) {
+                        this.intervene(ctx, elapsed);
+                    }
+                });
+            }
+
+            intervene(ctx, elapsed) {
+                if (!window.architect || !window.architect.contextState[ctx]) return;
+
+                window.frictionSystem.logInternalThought(ctx, `SYSTEM_ALERT: Inactivity detected. Forcing evolution.`);
+
+                const state = window.architect.contextState[ctx];
+
+                if (state.stage >= 2 && !window.knowledgeGraph.nodes.has(`${ctx}:Instance:Key5`)) {
+                    window.architect.evolve_numpad(ctx);
+                    this.lastActivity[ctx] = Date.now();
+                } else if (state.stage < 4) {
+                    state.stage++;
+                    if (state.stage === 1) window.architect.evolve_step1(ctx);
+                    if (state.stage === 2) window.architect.evolve_step2(ctx);
+                    if (state.stage === 3 && ctx === 'Accountant') window.architect.evolve_step3_accountant(ctx);
+                    if (state.stage === 4) window.architect.evolve_step4_display(ctx);
+                    this.lastActivity[ctx] = Date.now();
+                } else {
+                    window.frictionSystem.activemetrics[ctx].turbulence += 15;
+                    this.lastActivity[ctx] = Date.now();
+                }
+            }
+        }
+
+        // --- 8. Global Examiner ---
+        class GlobalExaminer {
+            constructor() {
+                this.currentTask = "";
+                this.targetSolution = 0;
+                this.tasks = [
+                    { prompt: "Calculate: 15 + 15", solution: 30 },
+                    { prompt: "50 apples / 5 friends", solution: 10 },
+                    { prompt: "10% Tax on 200", solution: 20 },
+                    { prompt: "Divide 90 by 2", solution: 45 },
+                    { prompt: "Sum 10, 20, 30", solution: 60 },
+                    { prompt: "Double 25", solution: 50 },
+                    { prompt: "Split 120 into 3", solution: 40 },
+                    { prompt: "Result of 7 x 8", solution: 56 },
+                    { prompt: "Half of 100", solution: 50 }
+                ];
+                this.generateNewTarget();
+                setInterval(() => this.updateUI(), 1000);
+            }
+
+            generateNewTarget() {
+                const task = this.tasks[Math.floor(Math.random() * this.tasks.length)];
+                this.currentTask = task.prompt;
+                this.targetSolution = task.solution;
+
+                ['child', 'accountant', 'engineer'].forEach(ctx => {
+                    const el = document.getElementById(`target-${ctx}`);
+                    if (el) {
+                        el.innerText = `Task: ${this.currentTask}`;
+                        el.style.backgroundColor = "rgba(255, 255, 0, 0.1)";
+                    }
+                });
+
+                if (this.nextTaskTimer) clearTimeout(this.nextTaskTimer);
+                this.nextTaskTimer = setTimeout(() => this.generateNewTarget(), 60000);
+            }
+
+            reportResult(ctx, value) {
+                if (Math.abs(value - this.targetSolution) < 0.01) {
+                    const el = document.getElementById(`target-${ctx.toLowerCase()}`);
+                    if (el) {
+                        el.innerText = `SUCCESS: ${value}`;
+                        el.style.backgroundColor = "rgba(0, 255, 0, 0.4)";
+                    }
+
+                    if (window.architect && window.architect.contextState[ctx]) {
+                        window.architect.contextState[ctx].iqBonus = (window.architect.contextState[ctx].iqBonus || 0) + 5;
+                    }
+                    setTimeout(() => this.generateNewTarget(), 5000);
+                }
+            }
+
+            updateUI() {}
+        }
+
+        // --- Initialization ---
+        window.frictionSystem = new FrictionLogger();
+        window.knowledgeGraph = new KnowledgeGraph();
+        window.renderer = new Renderer();
+        window.architect = new Architect();
+        window.agentSimulator = new AgentSimulator();
+        window.supervisor = new Supervisor();
+        window.visionOverlay = new VisionOverlay();
+        window.globalExaminer = new GlobalExaminer();
+
+        window.onload = () => {
+            console.log("MULTIVERSE READY - Waiting for API Key...");
+            window.agentSimulator.addPersona(window.Personas.Child);
+            window.agentSimulator.addPersona(window.Personas.Accountant);
+            window.agentSimulator.addPersona(window.Personas.Engineer);
+            // Don't auto-start - wait for user to click Start
+        };
+    </script>
+</body>
+
+</html>
