@@ -33,8 +33,6 @@
         .container {
             position: relative;
             z-index: 1;
-        }
-        .container {
             text-align: center;
             padding: 3rem;
             background: rgba(255, 255, 255, 0.05);
@@ -44,12 +42,16 @@
             box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
         }
         h1 {
-            font-size: 2.5rem;
+            font-size: 2rem;
             background: linear-gradient(90deg, #e94560, #ff6b6b, #feca57);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
             animation: glow 2s ease-in-out infinite alternate;
+            min-height: 3em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         @keyframes glow {
             from { filter: drop-shadow(0 0 5px rgba(233, 69, 96, 0.5)); }
@@ -64,12 +66,64 @@
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-10px); }
         }
+        .neon-button {
+            margin-top: 2rem;
+            padding: 1rem 2.5rem;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #fff;
+            background: transparent;
+            border: 2px solid #0ff;
+            border-radius: 8px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px #0ff, 0 0 20px #0ff, inset 0 0 10px rgba(0, 255, 255, 0.1);
+            text-shadow: 0 0 10px #0ff;
+        }
+        .neon-button:hover {
+            background: rgba(0, 255, 255, 0.1);
+            box-shadow: 0 0 20px #0ff, 0 0 40px #0ff, 0 0 60px #0ff, inset 0 0 20px rgba(0, 255, 255, 0.2);
+        }
+        .neon-button:active {
+            transform: scale(0.95);
+        }
+        @keyframes neon-flicker {
+            0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+                box-shadow: 0 0 10px #0ff, 0 0 20px #0ff, inset 0 0 10px rgba(0, 255, 255, 0.1);
+            }
+            20%, 24%, 55% {
+                box-shadow: none;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="emoji">🐾</div>
-        <h1>Hello World from OpenClaw Antigravity</h1>
+        <h1 id="message">Hello World from OpenClaw Antigravity</h1>
+        <button class="neon-button" id="clickBtn">Click Me</button>
     </div>
+
+    <script>
+        const quotes = [
+            "Talk is cheap. Show me the code. — Linus Torvalds",
+            "First, solve the problem. Then, write the code. — John Johnson",
+            "Code is like humor. When you have to explain it, it's bad. — Cory House",
+            "Any fool can write code that a computer can understand. Good programmers write code that humans can understand. — Martin Fowler",
+            "The best error message is the one that never shows up. — Thomas Fuchs"
+        ];
+
+        const messageEl = document.getElementById('message');
+        const clickBtn = document.getElementById('clickBtn');
+
+        clickBtn.addEventListener('click', () => {
+            const randomIndex = Math.floor(Math.random() * quotes.length);
+            messageEl.textContent = quotes[randomIndex];
+        });
+    </script>
 </body>
 </html>
